@@ -1,0 +1,28 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            gpio0_bb: gpio_bb0@44E07000 {
+            compatible = "gpio-bb";
+            reg = <0x44E07000 0x1000>;
+            status = "okay";
+            };
+        };
+    };
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
