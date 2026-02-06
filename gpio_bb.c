@@ -2,6 +2,7 @@
 #include <linux/io.h>
 #include <linux/gpio/driver.h>
 #include <linux/device/devres.h>
+#include <linux/property.h>
 
 #define GPIO_REVISION 0x00u
 #define GPIO_SYSCONFIG 0x10u
@@ -49,31 +50,47 @@ static int gpio_bb_probe(struct platform_device *pdev)
     struct device * dev = &pdev->dev;
     struct gpio_bb_data_struct_t * gpio_data;
     struct gpio_chip * gpio_chip;
+    u32 ngpio = 0;
+    int ret = -1;
 
     printk("%s called\n", __func__);
 
-    // gpio_data = devm_kzalloc(dev, sizeof(*gpio_data), GFP_KERNEL);
-    // if(gpio_data == NULL)
-    // {
-    //     return -ENOMEM;
-    // }
+    gpio_data = devm_kzalloc(dev, sizeof(*gpio_data), GFP_KERNEL);
+    if(gpio_data == NULL)
+    {
+        return -ENOMEM;
+    }
 
-    // gpio_data->base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
-    // if(gpio_data->base == NULL)
-    // {
-    //     return -ENOMEM;
-    // }
+    printk("%s called\n", __func__);
 
-    // gpio_chip = devm_kzalloc(dev, sizeof(*gpio_chip), GFP_KERNEL);
-    // if(gpio_chip == NULL)
-    // {
-    //     return -ENOMEM;
-    // }
+    gpio_data->base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
+    if(gpio_data->base == NULL)
+    {
+        return -ENOMEM;
+    }
 
-    // gpio_chip->get_direction = gpio_bb_get_direction;
-    // gpio_chip->set = gpio_bb_set;
-    // gpio_chip->get = gpio_bb_get;
-    // gpiochip_add_data(gpio_chip, gpio_data);
+    printk("%s called\n", __func__);
+
+    gpio_chip = devm_kzalloc(dev, sizeof(*gpio_chip), GFP_KERNEL);
+    if(gpio_chip == NULL)
+    {
+        return -ENOMEM;
+    }
+
+    gpio_chip->get_direction = gpio_bb_get_direction;
+    gpio_chip->set = gpio_bb_set;
+    gpio_chip->get = gpio_bb_get;
+    ret = device_property_read_u32(dev, "ngpios", &ngpio);
+    if(ret < 0)
+    {
+        return -1;
+    }
+    gpio_chip->ngpio = ngpio;
+
+    printk("gpio_chip->ngpio = %d\n", gpio_chip->ngpio);
+    gpiochip_add_data(gpio_chip, gpio_data);
+
+    printk("DEBUG\n");
 
     return 0;
 }
