@@ -63,21 +63,19 @@ static int gpio_bb_probe(struct platform_device *pdev)
         return -ENOMEM;
     }
 
-    printk("%s called\n", __func__);
-
     gpio_data->base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
     if(gpio_data->base == NULL)
     {
         return -ENOMEM;
     }
 
-    printk("%s called\n", __func__);
-
     gpio_chip = devm_kzalloc(dev, sizeof(*gpio_chip), GFP_KERNEL);
     if(gpio_chip == NULL)
     {
         return -ENOMEM;
     }
+
+    gpio_chip->base = -1;
 
     gpio_chip->get_direction = gpio_bb_get_direction;
     gpio_chip->set = gpio_bb_set;
@@ -104,8 +102,6 @@ static int gpio_bb_probe(struct platform_device *pdev)
 
     printk("gpio_chip->ngpio = %d\n", gpio_chip->ngpio);
     gpiochip_add_data(gpio_chip, gpio_data);
-
-    printk("DEBUG\n");
 
     return 0;
 }
@@ -136,6 +132,7 @@ static int gpio_bb_get_direction(struct gpio_chip *gc, unsigned int offset)
 
 static void gpio_bb_set(struct gpio_chip *gc, unsigned int offset, int value)
 {
+    printk("%s called\n", __func__);
     struct gpio_bb_data_struct_t * gpio_data;
     u32 reg = 0;
 
@@ -155,8 +152,10 @@ static void gpio_bb_set(struct gpio_chip *gc, unsigned int offset, int value)
 
 static int gpio_bb_get(struct gpio_chip *gc, unsigned int offset)
 {
+    printk("%s called\n", __func__);
     struct gpio_bb_data_struct_t * gpio_data;
     u32 reg = 0;
+    u32 ret = 0;
 
     gpio_data = (struct gpio_bb_data_struct_t *)gpiochip_get_data(gc);
     if(gpio_data == NULL)
@@ -165,8 +164,9 @@ static int gpio_bb_get(struct gpio_chip *gc, unsigned int offset)
     }
 
     reg = readl(gpio_data->base + GPIO_DATAIN);
+    ret = (reg >> offset) & 0x01;
 
-    return reg;
+    return ret;
 }
 
 static const struct of_device_id gpio_bb_match[] = {
