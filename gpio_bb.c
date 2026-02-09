@@ -36,6 +36,8 @@ static struct platform_driver gpio_bb_driver;
 static int gpio_bb_probe(struct platform_device *pdev);
 static void gpio_bb_remove(struct platform_device *pdev);
 static int gpio_bb_get_direction(struct gpio_chip *gc, unsigned int offset);
+static int gpio_bb_direction_input(struct gpio_chip *gc, unsigned int offset);
+static int gpio_bb_direction_output(struct gpio_chip *gc, unsigned int offset, int output_value);
 static void gpio_bb_set(struct gpio_chip *gc, unsigned int offset, int value);
 static int gpio_bb_get(struct gpio_chip *gc, unsigned int offset);
 
@@ -78,6 +80,8 @@ static int gpio_bb_probe(struct platform_device *pdev)
     gpio_chip->base = -1;
 
     gpio_chip->get_direction = gpio_bb_get_direction;
+    gpio_chip->direction_input = gpio_bb_direction_input;
+    gpio_chip->direction_output = gpio_bb_direction_output;
     gpio_chip->set = gpio_bb_set;
     gpio_chip->get = gpio_bb_get;
     ret = device_property_read_u32(dev, "ngpios", &ngpio);
@@ -86,6 +90,7 @@ static int gpio_bb_probe(struct platform_device *pdev)
         return -1;
     }
     gpio_chip->ngpio = ngpio;
+    printk("gpio_chip->ngpio = %d\n", gpio_chip->ngpio);
 
     /* enable clock */
     fck = devm_clk_get(dev, "fck");
@@ -100,7 +105,6 @@ static int gpio_bb_probe(struct platform_device *pdev)
         return ret;
     }
 
-    printk("gpio_chip->ngpio = %d\n", gpio_chip->ngpio);
     gpiochip_add_data(gpio_chip, gpio_data);
 
     return 0;
@@ -130,9 +134,46 @@ static int gpio_bb_get_direction(struct gpio_chip *gc, unsigned int offset)
     return ret;
 }
 
+static int gpio_bb_direction_input(struct gpio_chip *gc, unsigned int offset)
+{
+    struct gpio_bb_data_struct_t * gpio_data;
+    u32 reg = 0;
+
+    gpio_data = (struct gpio_bb_data_struct_t *)gpiochip_get_data(gc);
+    if(gpio_data == NULL)
+    {
+        return -ENOMEM;
+    }
+
+    reg = readl(gpio_data->base + GPIO_OE);
+    reg |= (1 << offset);
+
+    writel(reg, gpio_data->base + GPIO_OE);
+
+    return 0;
+}
+
+static int gpio_bb_direction_output(struct gpio_chip *gc, unsigned int offset, int output_value)
+{
+    struct gpio_bb_data_struct_t * gpio_data;
+    u32 reg = 0;
+
+    gpio_data = (struct gpio_bb_data_struct_t *)gpiochip_get_data(gc);
+    if(gpio_data == NULL)
+    {
+        return -ENOMEM;
+    }
+
+    gc->set(gc, offset, output_value);
+    reg = readl(gpio_data->base + GPIO_OE);
+    reg &= ~(1 << offset);
+    writel(reg, gpio_data->base + GPIO_OE);
+
+    return 0;
+}
+
 static void gpio_bb_set(struct gpio_chip *gc, unsigned int offset, int value)
 {
-    printk("%s called\n", __func__);
     struct gpio_bb_data_struct_t * gpio_data;
     u32 reg = 0;
 
@@ -142,9 +183,22 @@ static void gpio_bb_set(struct gpio_chip *gc, unsigned int offset, int value)
         return;
     }
 
-    reg = readl(gpio_data->base + GPIO_DATAOUT);
-    reg |= (value << offset);
-    writel(reg, gpio_data->base + GPIO_DATAOUT);
+    switch(value)
+    {
+        case 0:
+            reg = readl(gpio_data->base + GPIO_CLEARDATAOUT);
+            reg |= (1 << offset);
+            writel(reg, gpio_data->base + GPIO_CLEARDATAOUT);
+            break;
+        case 1:
+            reg = readl(gpio_data->base + GPIO_SETDATAOUT);
+            reg |= (1 << offset);
+            writel(reg, gpio_data->base + GPIO_SETDATAOUT);
+            break;
+        default:
+            printk("%s value error\n", __func__);
+            break;
+    }
 
     return;
 }
@@ -152,10 +206,10 @@ static void gpio_bb_set(struct gpio_chip *gc, unsigned int offset, int value)
 
 static int gpio_bb_get(struct gpio_chip *gc, unsigned int offset)
 {
-    printk("%s called\n", __func__);
     struct gpio_bb_data_struct_t * gpio_data;
     u32 reg = 0;
     u32 ret = 0;
+    u32 direction = 0;
 
     gpio_data = (struct gpio_bb_data_struct_t *)gpiochip_get_data(gc);
     if(gpio_data == NULL)
@@ -163,7 +217,22 @@ static int gpio_bb_get(struct gpio_chip *gc, unsigned int offset)
         return -ENOMEM;
     }
 
-    reg = readl(gpio_data->base + GPIO_DATAIN);
+    direction = gc->get_direction(gc, offset);
+    switch(direction)
+    {
+        /* output */
+        case 0:
+            reg = readl(gpio_data->base + GPIO_DATAOUT);
+            break;
+        /* input */
+        case 1:
+            reg = readl(gpio_data->base + GPIO_DATAIN);
+            break;
+        default:
+            printk("%s direction error\n", __func__);
+            break;
+    }
+
     ret = (reg >> offset) & 0x01;
 
     return ret;
