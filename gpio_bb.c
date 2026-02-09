@@ -3,6 +3,7 @@
 #include <linux/gpio/driver.h>
 #include <linux/device/devres.h>
 #include <linux/property.h>
+#include <linux/clk.h>
 
 #define GPIO_REVISION 0x00u
 #define GPIO_SYSCONFIG 0x10u
@@ -50,6 +51,7 @@ static int gpio_bb_probe(struct platform_device *pdev)
     struct device * dev = &pdev->dev;
     struct gpio_bb_data_struct_t * gpio_data;
     struct gpio_chip * gpio_chip;
+    struct clk * fck;
     u32 ngpio = 0;
     int ret = -1;
 
@@ -86,6 +88,19 @@ static int gpio_bb_probe(struct platform_device *pdev)
         return -1;
     }
     gpio_chip->ngpio = ngpio;
+
+    /* enable clock */
+    fck = devm_clk_get(dev, "fck");
+    if (IS_ERR(fck)) {
+        dev_err(dev, "Failed to get fck clock\n");
+        return PTR_ERR(fck);
+    }
+
+    ret = clk_prepare_enable(fck);
+    if (ret) {
+        dev_err(&pdev->dev, "Failed to enable clock\n");
+        return ret;
+    }
 
     printk("gpio_chip->ngpio = %d\n", gpio_chip->ngpio);
     gpiochip_add_data(gpio_chip, gpio_data);

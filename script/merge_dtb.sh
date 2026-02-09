@@ -9,6 +9,7 @@ sudo cp gpio-bb.dtbo /mnt/sdcard-boot/overlays
 sync
 cd /mnt/sdcard-boot
 sudo fdtoverlay -i am335x-boneblack.dtb -o am335x-boneblack.dtb overlays/gpio-bb.dtbo
-cd /home/ntai
+cd ~
+sync
 sudo umount /mnt/sdcard-boot
 echo "Success"

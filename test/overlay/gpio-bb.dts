@@ -8,8 +8,8 @@
             gpio0_bb: gpio_bb0@4804C000 {
                 compatible = "gpio-bb";
                 reg = <0x4804C000 0x1000>;
-                clocks = <&l4_wkup_clkctrl AM3_L4_WKUP_GPIO1_CLKCTRL 0>,
-				<&l4_wkup_clkctrl AM3_L4_WKUP_GPIO1_CLKCTRL 18>;
+                clocks = <&l4ls_clkctrl 0x74 0>,
+				<&l4ls_clkctrl 0x74 18>;
 			    clock-names = "fck", "dbclk";
                 ngpios = <32>;
                 status = "okay";
