@@ -67,7 +67,7 @@ test_direction_output() {
     print_test_header "GPIO IN-OUT on single gpio pin"
     
     # Set direction to OUTPUT
-    echo "  → Setting direction to 'out'..."
+    echo "Setting direction to 'out'..."
     echo "out" > /sys/class/gpio/gpio${GPIO}/direction
     
     # Read and verify
@@ -88,7 +88,7 @@ test_direction_output() {
 test_direction_input() {
     print_test_header "Set direction to INPUT"
     
-    echo "  → Setting direction to 'in'..."
+    echo "Setting direction to 'in'..."
     echo "in" > /sys/class/gpio/gpio${GPIO}/direction
     
     DIR=$(cat /sys/class/gpio/gpio${GPIO}/direction)
