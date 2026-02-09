@@ -63,3 +63,14 @@ make KDIR=/path/to/kernel ARCH=arm CROSS_COMPILE=arm-linux-gnueabi-
 7. Notes
  - Check `script/` for convenience scripts before manual DTB or build steps.
  - Use the `test/` overlays and `example/` Device Tree node as a starting point for hardware validation.
+
+8. Hardware setup & Environment
+ - Target boards: BeagleBone/AM335x-like platforms (see `example/am335x-boneblack.dts`). Any SoC with register-mapped GPIO blocks may work after adapting registers.
+ - Required host tooling:
+	 - Kernel headers / build tree available at `KDIR` (e.g. `/lib/modules/$(uname -r)/build`).
+	 - Cross toolchain if building for ARM: set `CROSS_COMPILE` and `ARCH` when needed.
+ - Runtime environment on target:
+	 - A Device Tree node with `.compatible = "gpio-bb"`, a `reg` entry mapping the GPIO MMIO region, and a `ngpios` u32 value.
+	 - If the platform uses clocks, provide a clock named `fck` (or modify the driver to skip clock handling).
+
+
