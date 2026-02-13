@@ -4,6 +4,7 @@
 #include <linux/device/devres.h>
 #include <linux/property.h>
 #include <linux/clk.h>
+#include <linux/irq.h>
 
 #define GPIO_REVISION 0x00u
 #define GPIO_SYSCONFIG 0x10u
@@ -33,6 +34,8 @@
 #define GPIO_SETDATAOUT 0x194u
 
 static struct platform_driver gpio_bb_driver;
+struct irq_chip gpio_bb_irq;
+
 static int gpio_bb_probe(struct platform_device *pdev);
 static void gpio_bb_remove(struct platform_device *pdev);
 static int gpio_bb_get_direction(struct gpio_chip *gc, unsigned int offset);
@@ -41,10 +44,18 @@ static int gpio_bb_direction_output(struct gpio_chip *gc, unsigned int offset, i
 static void gpio_bb_set(struct gpio_chip *gc, unsigned int offset, int value);
 static int gpio_bb_get(struct gpio_chip *gc, unsigned int offset);
 
+int	gpio_bb_to_irq(struct gpio_chip *gc, unsigned int offset);
+unsigned int gpio_bb_irq_startup(struct irq_data *data);
+void gpio_bb_irq_shutdown(struct irq_data *data);
+void gpio_bb_irq_enable(struct irq_data *data);
+void gpio_bb_irq_disable(struct irq_data *data);
+int gpio_bb_irq_set_type(struct irq_data *data, unsigned int flow_type);
+
 
 struct gpio_bb_data_struct_t
 {
     void __iomem * base;
+    struct platform_device * pdev;
 };
 
 
@@ -53,6 +64,7 @@ static int gpio_bb_probe(struct platform_device *pdev)
     struct device * dev = &pdev->dev;
     struct gpio_bb_data_struct_t * gpio_data;
     struct gpio_chip * gpio_chip;
+    struct gpio_irq_chip * gpio_irq;
     struct clk * fck;
     u32 ngpio = 0;
     int ret = -1;
@@ -65,6 +77,8 @@ static int gpio_bb_probe(struct platform_device *pdev)
         return -ENOMEM;
     }
 
+    gpio_data->pdev = pdev;
+    printk("pdev = %u\n", gpio_data->pdev);
     gpio_data->base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
     if(gpio_data->base == NULL)
     {
@@ -79,11 +93,12 @@ static int gpio_bb_probe(struct platform_device *pdev)
 
     gpio_chip->base = -1;
 
-    gpio_chip->get_direction = gpio_bb_get_direction;
-    gpio_chip->direction_input = gpio_bb_direction_input;
+    gpio_chip->get_direction    = gpio_bb_get_direction;
+    gpio_chip->direction_input  = gpio_bb_direction_input;
     gpio_chip->direction_output = gpio_bb_direction_output;
-    gpio_chip->set = gpio_bb_set;
-    gpio_chip->get = gpio_bb_get;
+    gpio_chip->set              = gpio_bb_set;
+    gpio_chip->get              = gpio_bb_get;
+    gpio_chip->to_irq           = gpio_bb_to_irq;
     ret = device_property_read_u32(dev, "ngpios", &ngpio);
     if(ret < 0)
     {
@@ -106,6 +121,7 @@ static int gpio_bb_probe(struct platform_device *pdev)
     }
 
     gpiochip_add_data(gpio_chip, gpio_data);
+    gpio_irq_chip_set_chip(&gpio_chip->irq, &gpio_bb_irq); 
 
     return 0;
 }
@@ -237,6 +253,78 @@ static int gpio_bb_get(struct gpio_chip *gc, unsigned int offset)
 
     return ret;
 }
+
+int	gpio_bb_to_irq(struct gpio_chip *gc, unsigned int offset)
+{
+    int irq;
+    struct platform_device *pdev;
+    struct gpio_bb_data_struct_t * gpio_data;
+
+    gpio_data = (struct gpio_bb_data_struct_t *)gpiochip_get_data(gc);
+
+    pdev = gpio_data->pdev;
+    printk("pdev = %u\n", pdev);
+
+    switch(offset)
+    {
+        case 0 ... 14:
+            irq = platform_get_irq(pdev, 0);
+            break;
+        case 15 ... 31:
+            irq = platform_get_irq(pdev, 1);
+            break;
+        default:
+            printk("offset is error\n");
+            break;
+    }
+
+    printk("%s irq = %d\n", __func__, irq);
+
+    return irq;
+}
+
+unsigned int gpio_bb_irq_startup(struct irq_data *data)
+{
+    printk("%s called\n", __func__);
+    printk("data->mask = %u\n", data->mask);
+    printk("data->irq = %u\n", data->irq);
+    printk("data->hwirq = %u\n", data->hwirq);
+    printk("----------------------");
+
+    return 0;
+}
+
+void gpio_bb_irq_shutdown(struct irq_data *data)
+{
+    printk("%s called\n", __func__);
+}
+
+void gpio_bb_irq_enable(struct irq_data *data)
+{
+    printk("%s called\n", __func__);
+}
+
+void gpio_bb_irq_disable(struct irq_data *data)
+{
+    printk("%s called\n", __func__);
+}
+
+int gpio_bb_irq_set_type(struct irq_data *data, unsigned int flow_type)
+{
+    printk("%s called\n", __func__);
+    printk("flow_type %u\n", flow_type);
+
+    return 0;
+}
+
+struct irq_chip gpio_bb_irq = 
+{
+    .irq_startup = gpio_bb_irq_startup,
+    .irq_shutdown = gpio_bb_irq_shutdown,
+    .irq_enable = gpio_bb_irq_enable,
+    .irq_disable = gpio_bb_irq_disable,
+    .irq_set_type = gpio_bb_irq_set_type
+};
 
 static const struct of_device_id gpio_bb_match[] = {
 	{
